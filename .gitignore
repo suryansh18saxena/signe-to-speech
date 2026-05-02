@@ -1,0 +1,28 @@
+# Python & Django Caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.log
+
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+
+# Database
+db.sqlite3
+
+# Large Model Files (GitHub limits files over 50-100MB)
+*.joblib
+*.h5
+*.pkl
+*.pt
+*.pth
+
+# OS Generated Files
+.DS_Store
+Thumbs.db
+
+# Scratch and Temp files
+scratch.py

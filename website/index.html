@@ -1,0 +1,1226 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Bridge | Real-time Sign Language to Audio</title>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <style>
+        /* Highly Accessible Simple Light Theme for Low Vision */
+        :root {
+            --primary-color: #1A73E8;
+            /* Strong, accessible blue instead of yellow */
+            --secondary-color: #0D47A1;
+            --accent-color: #188038;
+            /* High contrast green */
+            --bg-dark: #F8F9FA;
+            /* Clean light background */
+            --bg-card: #FFFFFF;
+            /* Solid white cards */
+            --text-main: #202124;
+            /* High contrast almost black */
+            --text-muted: #5F6368;
+            /* Accessible dark gray */
+            --border-color: #DADCE0;
+            --font-main: 'Inter', sans-serif;
+            --gradient-btn: #1A73E8;
+            --gradient-text: #1A73E8;
+        }
+
+        *:focus,
+        *:focus-visible {
+            outline: 4px solid var(--primary-color) !important;
+            outline-offset: 2px !important;
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border-width: 0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            background-image: none;
+            /* Removed confusing background gradients for clarity */
+        }
+
+        /* Typography */
+        h1,
+        h2,
+        h3 {
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+
+        .text-gradient {
+            background: var(--gradient-text);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            display: inline-block;
+        }
+
+        /* Navigation */
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 5%;
+            background: #FFFFFF;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            border-bottom: 1px solid var(--border-color);
+            position: relative;
+            z-index: 100;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            color: var(--text-main);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.95rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--text-main);
+        }
+
+        .nav-links a::after {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 2px;
+            bottom: -4px;
+            left: 0;
+            background: var(--accent-color);
+            transition: width 0.3s ease;
+        }
+
+        .nav-links a:hover::after,
+        .nav-links a.active::after {
+            width: 100%;
+        }
+
+        .menu-toggle {
+            display: none;
+            background: none;
+            border: none;
+            color: var(--text-main);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-block;
+            padding: 0.8rem 1.8rem;
+            border-radius: 50px;
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+        }
+
+        .btn-primary {
+            background: var(--primary-color);
+            color: white;
+            box-shadow: 0 4px 6px rgba(26, 115, 232, 0.2);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(26, 115, 232, 0.3);
+        }
+
+        .btn-secondary {
+            background: #FFFFFF;
+            color: var(--primary-color);
+            border: 1px solid var(--primary-color);
+        }
+
+        .btn-secondary:hover {
+            background: #f8f9fa;
+            border-color: var(--secondary-color);
+        }
+
+        /* Layout Core */
+        main {
+            flex: 1;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 5%;
+        }
+
+        /* Hero Section (Index) */
+        .hero {
+            height: calc(100vh - 160px);
+            /* Account for nav and footer */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            min-height: 500px;
+        }
+
+        .hero-content {
+            max-width: 800px;
+            animation: fadeInUp 0.8s ease-out;
+        }
+
+        .hero h1 {
+            font-size: clamp(2.5rem, 5vw, 4.5rem);
+            line-height: 1.1;
+            letter-spacing: -1px;
+        }
+
+        .hero p {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            margin-bottom: 2.5rem;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .hero-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        /* Project Details Page */
+        .page-header {
+            text-align: center;
+            padding: 4rem 0 2rem;
+        }
+
+        .page-header h1 {
+            font-size: 3rem;
+        }
+
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            padding-bottom: 4rem;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary-color);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+        }
+
+        .card h3 {
+            color: var(--accent-color);
+            font-size: 1.4rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 1rem;
+        }
+
+        .card p,
+        .card ul {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        .card ul {
+            list-style-position: inside;
+            margin-top: 1rem;
+        }
+
+        .card li {
+            margin-bottom: 0.5rem;
+        }
+
+        /* Architecture Visual Box */
+        .architecture-box {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .arch-node {
+            background: rgba(74, 144, 226, 0.1);
+            border: 1px dashed var(--primary-color);
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .arch-arrow {
+            text-align: center;
+            color: var(--secondary-color);
+            font-size: 1.5rem;
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 2rem;
+            border-top: 1px solid var(--border-color);
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            background: var(--bg-card);
+        }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .menu-toggle {
+                display: block;
+            }
+
+            .nav-links {
+                position: absolute;
+                top: 100%;
+                left: 0;
+                width: 100%;
+                background: #FFFFFF;
+                flex-direction: column;
+                align-items: center;
+                padding: 2rem 0;
+                gap: 1.5rem;
+                clip-path: circle(0% at top right);
+                transition: clip-path 0.4s ease-out;
+                border-bottom: 1px solid var(--border-color);
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            }
+
+            .nav-links.active {
+                clip-path: circle(150% at top right);
+            }
+
+            .hero-buttons {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+            }
+
+            .hero p {
+                font-size: 1rem;
+            }
+        }
+
+        /* Authentication Forms */
+        .auth-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: calc(100vh - 160px);
+            padding: 2rem 5%;
+        }
+
+        .auth-card {
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+            text-align: left;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            border-radius: 8px;
+            background: #fff;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            font-family: var(--font-main);
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
+        }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            text-align: center;
+            margin: 1.5rem 0;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .divider:not(:empty)::before {
+            margin-right: .5em;
+        }
+
+        .divider:not(:empty)::after {
+            margin-left: .5em;
+        }
+
+        .btn-google {
+            background: white;
+            color: #333;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-google:hover {
+            background: #f8f9fa;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .auth-links {
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .auth-links a {
+            color: var(--accent-color);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .auth-links a:hover {
+            text-decoration: underline;
+        }
+
+        /* =========================================
+   LIGHT ACCESSIBLE HOMEPAGE THEME
+   (Based on Layout Reference but Light Theme)
+   ========================================= */
+
+        .light-accessible-theme {
+            background: #FFFFFF;
+            color: #202124;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .transparent-nav {
+            background: transparent !important;
+            border-bottom: none !important;
+            box-shadow: none !important;
+            padding: 1.5rem 5% !important;
+        }
+
+        .transparent-nav .logo-icon {
+            background-color: #1A73E8;
+            color: white;
+        }
+
+        .transparent-nav .logo span {
+            color: #1A73E8 !important;
+        }
+
+        .transparent-nav .menu-toggle i {
+            color: #202124 !important;
+        }
+
+        .center-links a {
+            color: #5F6368 !important;
+            font-weight: 600;
+        }
+
+        .center-links a:hover,
+        .center-links a.active {
+            color: #1A73E8 !important;
+        }
+
+        .btn-nav-login {
+            background: white;
+            border: 1px solid #1A73E8;
+            color: #1A73E8;
+            padding: 8px 20px;
+            border-radius: 30px;
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: 0.3s;
+        }
+
+        .btn-nav-login:hover {
+            background: #1A73E8;
+            color: white;
+        }
+
+        .hero-cinematic {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem 5%;
+        }
+
+        .glass-card {
+            display: flex;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 24px;
+            width: 100%;
+            max-width: 900px;
+            min-height: 400px;
+            padding: 4rem;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.08);
+            border: 1px solid rgba(255, 255, 255, 1);
+        }
+
+        .glass-left {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 0;
+        }
+
+        .glass-left h1 {
+            font-size: clamp(3rem, 5vw, 4.5rem);
+            margin-bottom: 1.5rem;
+            color: #111;
+            line-height: 1.1;
+            letter-spacing: -1px;
+        }
+
+        .glass-left p {
+            font-size: 1.25rem;
+            color: #444;
+            margin-bottom: 3.5rem;
+            max-width: 550px;
+            line-height: 1.6;
+        }
+
+        .hero-buttons-stacked {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 100%;
+            max-width: 450px;
+        }
+
+        .btn-hollow-blue {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: white;
+            color: #0D47A1;
+            border: 2px solid #1A73E8;
+            padding: 16px 30px;
+            border-radius: 12px;
+            font-weight: 700;
+            text-decoration: none;
+            font-size: 1.1rem;
+            transition: all 0.3s;
+            box-shadow: 0 4px 6px rgba(26, 115, 232, 0.1);
+        }
+
+        .btn-hollow-blue:hover {
+            background: #F0F7FF;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 15px rgba(26, 115, 232, 0.2);
+            border-color: #0D47A1;
+        }
+
+        .glass-right {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .hero-isometric-img {
+            max-width: 100%;
+            max-height: 450px;
+            object-fit: contain;
+            filter: drop-shadow(0 15px 25px rgba(0, 0, 0, 0.1));
+        }
+
+        @media (max-width: 900px) {
+            .glass-card {
+                flex-direction: column;
+                padding: 2.5rem;
+            }
+
+            .glass-left {
+                padding-right: 0;
+                text-align: center;
+                margin-bottom: 4rem;
+            }
+
+            .glass-left p {
+                margin-left: auto;
+                margin-right: auto;
+            }
+
+            .hero-buttons-stacked {
+                width: 100%;
+                margin: 0 auto;
+            }
+        }
+
+        /* =========================================
+   SPA VIEW ROUTING
+   ========================================= */
+        .spa-view {
+            display: none;
+        }
+
+        .spa-view.active-view {
+            display: block;
+            animation: fadeIn 0.4s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+
+<body class="light-accessible-theme">
+
+    <!-- Transparent Navigation Bar -->
+    <nav role="navigation" aria-label="Main Navigation" class="transparent-nav">
+        <!-- Replaced href with navigateTo -->
+        <a href="#" onclick="navigateTo('home'); return false;" class="logo" aria-label="Sign Bridge Home">
+            <div class="logo-icon"><i class="fa-solid fa-hands-asl-interpreting"></i></div>
+            <span style="color: white; font-weight: bold; font-size: 1.2rem;">Sign Bridge</span>
+        </a>
+
+        <button class="menu-toggle" aria-expanded="false" aria-controls="main-nav" aria-label="Toggle Navigation Menu">
+            <i class="fa-solid fa-bars" aria-hidden="true" style="color: white;"></i>
+        </button>
+
+        <ul class="nav-links center-links" id="main-nav" role="menubar">
+            <li><a href="#"
+                    onclick="navigateTo('home'); setTimeout(()=>{document.getElementById('downloads').scrollIntoView();}, 50); return false;"><i
+                        class="fa-solid fa-download" style="color: #0F9D58; margin-right: 5px;"></i> SIGN BRIDGE
+                    LAUNCHER</a></li>
+            <li><a href="#"
+                    onclick="navigateTo('home'); setTimeout(()=>{document.getElementById('why-choose').scrollIntoView();}, 50); return false;">WHY
+                    SIGN BRIDGE</a></li>
+            <li id="history-nav-btn" style="display: none;"><a href="#"
+                    onclick="openHistory(); return false;"><i class="fa-solid fa-clock-rotate-left" style="color: #1A73E8; margin-right: 5px;"></i> HISTORY</a></li>
+        </ul>
+
+        <div class="nav-auth-buttons" style="display: flex; gap: 15px; align-items: center;">
+            <a href="#" onclick="navigateTo('home'); return false;"
+                style="color: #5F6368; font-weight: 600; text-decoration: none; font-size: 0.95rem; transition: 0.3s;"><i
+                    class="fa-solid fa-house" style="margin-right: 4px;"></i> Home</a>
+            <a href="#" onclick="navigateTo('login'); return false;"
+                style="background: #1A73E8; color: white; padding: 8px 24px; border-radius: 20px; text-decoration: none; font-size: 0.85rem; font-weight: 600; box-shadow: 0 4px 6px rgba(26,115,232,0.2); transition: 0.3s;"
+                id="login-nav-btn">Sign in / Sign up</a>
+            <a href="#" onclick="navigateTo('home'); return false;" id="logout-nav-btn"
+                style="display: none; background: #1A73E8; color: white; padding: 8px 24px; border-radius: 20px; text-decoration: none; font-size: 0.85rem; font-weight: 600; box-shadow: 0 4px 6px rgba(26,115,232,0.2); transition: 0.3s;">Logout</a>
+        </div>
+    </nav>
+
+    <!-- ================= SPA VIEWS ================= -->
+
+    <!-- HOME VIEW -->
+    <div id="view-home" class="spa-view active-view">
+        <main role="main"
+            style="position: relative; height: calc(100vh - 80px); width: 100vw; overflow: hidden; display: flex; align-items: center; justify-content: flex-start; padding: 5%; background: url('assets/background_new.png?v=3') no-repeat center center; background-size: cover; box-sizing: border-box;">
+            <!-- Text Floating Over Picture -->
+            <div style="z-index: 2; max-width: 500px; text-align: left; margin-left: 5%;">
+                <p
+                    style="text-transform: uppercase; letter-spacing: 2px; color: #1A73E8; font-weight: 800; margin-bottom: 10px; font-size: 1rem; text-shadow: 0 0 10px white, 0 0 20px white;">
+                    Bridging The Gap Easily</p>
+                <h1
+                    style="font-size: 4rem; color: #111; margin-bottom: 1.5rem; line-height: 1.1; letter-spacing: -1px; font-weight: 800; text-shadow: 0 0 15px white, 0 0 30px rgba(255,255,255,0.8);">
+                    Sign Bridge AI</h1>
+                <p
+                    style="font-size: 1.25rem; color: #222; line-height: 1.7; margin-bottom: 2.5rem; font-weight: 600; text-shadow: 0 0 15px white, 0 0 25px white;">
+                    Experience real-time recognition of hand gestures instantly converted into accurate text and dynamic
+                    audio speech. Designed carefully with a high-accessibility light theme to help blind and deaf users
+                    easily communicate without barriers.</p>
+                <a href="#" onclick="return false;"
+                    style="cursor: default; display: inline-flex; align-items: center; gap: 10px; background: #1A73E8; color: white; padding: 14px 32px; border-radius: 30px; text-decoration: none; font-weight: 600; font-size: 1.1rem; transition: all 0.3s ease; box-shadow: 0 8px 20px rgba(26,115,232,0.4);">Explore
+                    Features <i class="fa-solid fa-arrow-right"></i></a>
+            </div>
+        </main>
+
+        <!-- Download Launcher Section -->
+        <section id="downloads" style="padding: 5rem 5%; background: white;">
+            <div style="max-width: 1000px; margin: 0 auto; text-align: center;">
+                <div style="display: flex; flex-wrap: wrap; gap: 2rem; justify-content: space-between;">
+                    <div
+                        style="flex: 1; min-width: 300px; background: #fff; border: 1px solid #eaeaea; border-radius: 12px; padding: 2.5rem; box-shadow: 0 10px 30px rgba(0,0,0,0.05);">
+                        <h2 style="color: #0d47a1; margin-bottom: 1.5rem; font-size: 1.4rem;">Download Sign
+                            Bridge(WINDOWS)</h2>
+                        <h3 style="color: #333; margin-bottom: 1.5rem; font-size: 1.1rem;">System Compatibility</h3>
+                        <ul
+                            style="list-style: none; padding: 0; text-align: left; margin: 0 auto; display: inline-block; color: #5f6368; font-size: 0.95rem; line-height: 2;">
+                            <li><i class="fa-solid fa-bolt"
+                                    style="color: #fbbc05; width: 30px; text-align: center;"></i> i3 2.2GHz / AMD A6
+                                1.8GHz or above</li>
+                            <li><i class="fa-solid fa-compact-disc"
+                                    style="color: #bfa4e3; width: 30px; text-align: center;"></i> Only Windows 10 and 11
+                            </li>
+                            <li><i class="fa-solid fa-floppy-disk"
+                                    style="color: #5c4d7d; width: 30px; text-align: center;"></i> Memory: 8 GB or above
+                            </li>
+                            <li><i class="fa-solid fa-desktop"
+                                    style="color: #5ca4d1; width: 30px; text-align: center;"></i> Display: 14" Screen
+                                with 1920 x 1080 or above</li>
+                            <li><i class="fa-solid fa-battery-half"
+                                    style="color: #8ed081; width: 30px; text-align: center;"></i> Battery Life: 4 hours
+                                under normal use</li>
+                        </ul>
+                        <button class="btn btn-primary"
+                            style="background: #1a73e8; width: 80%; margin: 2rem auto 0 auto; border-radius: 8px; display: flex; justify-content: center; align-items: center; gap: 10px; color: white; padding: 12px; border: none; cursor: pointer; font-size: 1rem; transition: 0.3s;"
+                            onclick="window.open('https://drive.google.com/drive/folders/1IiDmNDtUT8_LTW3pW8_My60BUS5cRARl?usp=drive_link', '_blank');">
+                            <i class="fa-brands fa-windows" style="color: #fbbc05;"></i> Download for Windows (~152MB)
+                        </button>
+                    </div>
+
+                    <div
+                        style="flex: 1; min-width: 300px; background: #fff; border: 1px solid #eaeaea; border-radius: 12px; padding: 2.5rem; box-shadow: 0 10px 30px rgba(0,0,0,0.05);">
+                        <h2 style="color: #0d47a1; margin-bottom: 1.5rem; font-size: 1.4rem;">Download Sign Bridge(MAC)
+                        </h2>
+                        <h3 style="color: #333; margin-bottom: 1.5rem; font-size: 1.1rem;">System Compatibility</h3>
+                        <ul
+                            style="list-style: none; padding: 0; text-align: left; margin: 0 auto; display: inline-block; color: #5f6368; font-size: 0.95rem; line-height: 2;">
+                            <li><i class="fa-solid fa-bolt"
+                                    style="color: #fbbc05; width: 30px; text-align: center;"></i> Intel or Apple Silicon
+                                (M1/M2/M3)</li>
+                            <li><i class="fa-solid fa-compact-disc"
+                                    style="color: #bfa4e3; width: 30px; text-align: center;"></i> macOS 12 Monterey or
+                                newer</li>
+                            <li><i class="fa-solid fa-floppy-disk"
+                                    style="color: #5c4d7d; width: 30px; text-align: center;"></i> Memory: 8 GB or above
+                            </li>
+                            <li><i class="fa-solid fa-desktop"
+                                    style="color: #5ca4d1; width: 30px; text-align: center;"></i> Display: 14" Screen
+                                with 1920 x 1080 or above</li>
+                            <li><i class="fa-solid fa-battery-half"
+                                    style="color: #8ed081; width: 30px; text-align: center;"></i> Battery Life: 4 hours
+                                under normal use</li>
+                        </ul>
+                        <button class="btn btn-primary"
+                            style="background: #1a73e8; width: 80%; margin: 2rem auto 0 auto; border-radius: 8px; display: flex; justify-content: center; align-items: center; gap: 10px; color: white; padding: 12px; border: none; cursor: pointer; font-size: 1rem; transition: 0.3s;"
+                            onclick="alert('Downloading Mac version...');">
+                            <i class="fa-solid fa-box" style="color: #d1825c;"></i> Download for macOS (~12MB)
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Why Sign Bridge Section -->
+        <section id="why-choose" style="padding: 5rem 5%; background: #F8F9FA;">
+            <div style="max-width: 1000px; margin: 0 auto; text-align: center;">
+                <h2 style="color: #0d47a1; font-size: 2.2rem; margin-bottom: 0.5rem;">Why Choose?</h2>
+                <h3 style="color: #555; font-size: 1.3rem; margin-bottom: 3rem;">Our AI-Powered Accessibility &
+                    Translation Platform?</h3>
+                <div
+                    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; text-align: left;">
+                    <div
+                        style="background: #eff6ff; padding: 20px; border-radius: 8px; display: flex; gap: 15px; align-items: flex-start; box-shadow: 0 4px 6px rgba(0,0,0,0.02);">
+                        <div
+                            style="background: #34a853; color: white; border-radius: 4px; padding: 2px 6px; font-size: 0.8rem; margin-top: 2px;">
+                            <i class="fa-solid fa-check"></i></div>
+                        <div style="color: #444; font-size: 0.95rem; line-height: 1.5;">Real-time AI translation from
+                            sign language to speech with zero latency.</div>
+                    </div>
+                    <!-- Other feature blocks omitted for brevity but they are safe -->
+                    <div
+                        style="background: #eff6ff; padding: 20px; border-radius: 8px; display: flex; gap: 15px; align-items: flex-start; box-shadow: 0 4px 6px rgba(0,0,0,0.02);">
+                        <div
+                            style="background: #34a853; color: white; border-radius: 4px; padding: 2px 6px; font-size: 0.8rem; margin-top: 2px;">
+                            <i class="fa-solid fa-check"></i></div>
+                        <div style="color: #444; font-size: 0.95rem; line-height: 1.5;">Fully accessible interface
+                            designed specifically for individuals with visual or hearing impairments.</div>
+                    </div>
+                    <div
+                        style="background: #eff6ff; padding: 20px; border-radius: 8px; display: flex; gap: 15px; align-items: flex-start; box-shadow: 0 4px 6px rgba(0,0,0,0.02);">
+                        <div
+                            style="background: #34a853; color: white; border-radius: 4px; padding: 2px 6px; font-size: 0.8rem; margin-top: 2px;">
+                            <i class="fa-solid fa-check"></i></div>
+                        <div style="color: #444; font-size: 0.95rem; line-height: 1.5;">Dynamic audio generation
+                            matching the translated text naturally and instantly.</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Feedback Section -->
+        <section id="feedback-section" style="padding: 5rem 5%; background: white;">
+            <div style="max-width: 600px; margin: 0 auto; text-align: center;">
+                <h2 style="color: #0d47a1; font-size: 2.2rem; margin-bottom: 0.5rem;">We'd Love Your Feedback!</h2>
+                <p style="color: #5f6368; font-size: 1.1rem; margin-bottom: 2rem;">Help us improve Sign Bridge by
+                    sharing your thoughts or reporting issues.</p>
+                <form id="feedback-form" onsubmit="submitFeedback(event)"
+                    style="display: flex; flex-direction: column; gap: 15px; text-align: left;">
+                    <div class="form-group">
+                        <label for="feedback-email" style="color: #202124; font-weight: 500;">Email (optional)</label>
+                        <input type="email" id="feedback-email" class="form-control" placeholder="your@email.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="feedback-message" style="color: #202124; font-weight: 500;">Message <span
+                                style="color: red;">*</span></label>
+                        <textarea id="feedback-message" class="form-control" rows="4"
+                            placeholder="Tell us what you think..." required style="resize: vertical;"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary"
+                        style="padding: 12px; font-size: 1rem; border-radius: 8px; width: 100%;">Submit
+                        Feedback</button>
+                </form>
+                <div id="feedback-success" style="display: none; color: #0F9D58; font-weight: 600; margin-top: 15px;">
+                    Thank you for your feedback!</div>
+            </div>
+        </section>
+    </div>
+
+    <!-- LOGIN VIEW -->
+    <div id="view-login" class="spa-view">
+        <main class="auth-wrapper" style="min-height: calc(100vh - 80px);">
+            <div class="card auth-card">
+                <h2 id="auth-heading" style="margin-bottom: 0.5rem;">Welcome Back</h2>
+                <p style="color: var(--text-muted); margin-bottom: 2rem;">Sign in to continue to Sign Bridge</p>
+
+                <form id="login-form" aria-labelledby="auth-heading" onsubmit="window.handleAuth(event)">
+                    <div class="form-group">
+                        <label for="email">Email Address <span class="sr-only">Required</span></label>
+                        <input type="email" id="email" name="email" class="form-control" placeholder="you@example.com"
+                            aria-required="true" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password">Password <span class="sr-only">Required</span></label>
+                        <input type="password" id="password" name="password" class="form-control"
+                            placeholder="Enter your password" aria-required="true" required>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
+                        Sign In
+                    </button>
+                </form>
+
+                <div class="divider" aria-hidden="true">OR</div>
+
+                <!-- Replace YOUR_GOOGLE_CLIENT_ID below with your actual Client ID -->
+                <div id="g_id_onload"
+                     data-client_id="YOUR_GOOGLE_CLIENT_ID"
+                     data-context="signin"
+                     data-ux_mode="popup"
+                     data-callback="handleGoogleCredentialResponse"
+                     data-auto_prompt="false">
+                </div>
+                
+                <div class="g_id_signin"
+                     data-type="standard"
+                     data-shape="rectangular"
+                     data-theme="outline"
+                     data-text="signin_with"
+                     data-size="large"
+                     data-logo_alignment="left"
+                     style="display: flex; justify-content: center; width: 100%;">
+                </div>
+
+                <div class="auth-links" style="margin-top: 15px; text-align: center;">
+                    <span id="auth-toggle-desc">Don't have an account? </span><a href="#" id="toggle-auth">Sign up</a>
+                </div>
+            </div>
+        </main>
+
+        <!-- Google Login Modal Mockup -->
+        <div id="google-modal" class="modal-overlay"
+            style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: center;">
+            <div
+                style="background: white; padding: 2rem; border-radius: 12px; width: 90%; max-width: 400px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+                <div style="margin-bottom: 1rem; display: flex; justify-content: center;">
+                    <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt=""
+                        style="width: 40px; height: 40px;">
+                </div>
+                <h3 style="margin-bottom: 0.5rem; font-size: 1.5rem; color: #202124;">Sign in with Google</h3>
+                <p style="margin-bottom: 1.5rem; color: #5f6368; font-size: 0.95rem;">Choose an account to continue to
+                    Sign Bridge</p>
+
+                <div
+                    style="display: flex; flex-direction: column; gap: 8px; max-height: 350px; overflow-y: auto; overflow-x: hidden; padding-right: 5px;">
+                    <!-- Dynamic accounts will populate here -->
+                    <div id="dynamic-accounts-container"></div>
+                    <div style="height: 1px; background: #dadce0; margin: 4px 0;"></div>
+
+                    <button onclick="handleGoogleAddAccount()"
+                        style="display: flex; align-items: center; gap: 15px; padding: 12px; border: 1px solid transparent; border-radius: 20px; background: #fff; cursor: pointer; text-align: left; transition: background 0.3s;"
+                        onmouseover="this.style.background='#f1f3f4'" onmouseout="this.style.background='#fff'">
+                        <div
+                            style="width: 32px; height: 32px; border-radius: 50%; background: white; border: 1px solid #dadce0; color: #5f6368; display: flex; justify-content: center; align-items: center; font-size: 1rem;">
+                            <i class="fa-solid fa-user-plus"></i></div>
+                        <div style="flex-grow: 1;">
+                            <div style="font-weight: 500; color: #3c4043; font-size: 0.95rem;">Use another account</div>
+                        </div>
+                    </button>
+                </div>
+
+                <div style="margin-top: 1.5rem; text-align: right;">
+                    <button onclick="document.getElementById('google-modal').style.display='none'"
+                        style="padding: 8px 16px; border: none; background: transparent; color: #1a73e8; cursor: pointer; font-weight: 500; font-size: 0.9rem;">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            // Authentication toggle script
+            const toggleAuthBtn = document.getElementById('toggle-auth');
+            const authTitle = document.querySelector('.auth-card h2');
+            const authDesc = document.querySelector('.auth-card p');
+            const submitBtn = document.querySelector('#login-form button[type="submit"]');
+            const authToggleDesc = document.getElementById('auth-toggle-desc');
+            let isLogin = true;
+
+            if (toggleAuthBtn) {
+                toggleAuthBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    isLogin = !isLogin;
+
+                    if (isLogin) {
+                        authTitle.textContent = 'Welcome Back';
+                        authDesc.textContent = 'Sign in to continue to Sign Bridge';
+                        submitBtn.textContent = 'Sign In';
+                        toggleAuthBtn.innerHTML = 'Sign up';
+                        authToggleDesc.textContent = "Don't have an account? ";
+                    } else {
+                        authTitle.textContent = 'Create an Account';
+                        authDesc.textContent = 'Join Sign Bridge today';
+                        submitBtn.textContent = 'Sign Up';
+                        toggleAuthBtn.innerHTML = 'Sign in';
+                        authToggleDesc.textContent = "Already have an account? ";
+                    }
+                });
+            }
+
+            window.handleAuth = async function (event) {
+                event.preventDefault();
+                const email = document.getElementById('email').value.trim();
+                const password = document.getElementById('password').value;
+
+                if (!isLogin) {
+                    // Register
+                    try {
+                        const res = await fetch('/api/register', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ email, password })
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                            alert("Account created successfully! You can now Sign In.");
+                            document.getElementById('toggle-auth').click();
+                        } else {
+                            alert(data.error || "Registration failed");
+                        }
+                    } catch (err) {
+                        alert("Network error");
+                    }
+                } else {
+                    // Login
+                    try {
+                        const res = await fetch('/api/login', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ email, password })
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                            navigateTo('profile', email);
+                        } else {
+                            alert(data.error || "Login failed");
+                        }
+                    } catch (err) {
+                        alert("Network error");
+                    }
+                }
+            };
+
+            window.handleGoogleCredentialResponse = async function(response) {
+                try {
+                    const res = await fetch('/api/google_login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ credential: response.credential })
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        navigateTo('profile', data.email);
+                    } else {
+                        alert(data.error || "Google login failed. (Did you configure GOOGLE_CLIENT_ID?)");
+                    }
+                } catch (err) {
+                    console.error("Login failed", err);
+                    alert("Network error during Google sign in");
+                }
+            };
+
+            async function loadDynamicAccounts() {
+                let savedAccounts = [];
+                // Django handles auth, no need to list accounts here.
+
+                let container = document.getElementById('dynamic-accounts-container');
+                if (container) {
+                    container.innerHTML = '';
+                    savedAccounts.forEach(email => {
+                        let initial = email.charAt(0).toUpperCase();
+                        let name = email.split('@')[0];
+                        let html = `
+                            <button onclick="navigateTo('profile', '${email}'); document.getElementById('google-modal').style.display='none';" style="display: flex; align-items: center; gap: 15px; padding: 12px; border: 1px solid transparent; border-radius: 20px; background: #fff; cursor: pointer; text-align: left; transition: background 0.3s;" onmouseover="this.style.background='#f1f3f4'" onmouseout="this.style.background='#fff'">
+                                <div style="width: 32px; height: 32px; min-width: 32px; border-radius: 50%; background: #607D8B; color: white; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 0.9rem;">${initial}</div>
+                                <div style="flex-grow: 1; overflow: hidden; text-overflow: ellipsis;">
+                                    <div style="font-weight: 500; color: #3c4043; font-size: 0.95rem;">${name}</div>
+                                    <div style="font-size: 0.85rem; color: #5f6368; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${email}</div>
+                                </div>
+                            </button>
+                            <div style="height: 1px; background: #dadce0; margin: 4px 0;"></div>
+                        `;
+                        container.innerHTML += html;
+                    });
+                }
+            }
+            window.loadDynamicAccounts = loadDynamicAccounts;
+            document.addEventListener('DOMContentLoaded', loadDynamicAccounts);
+            const googleBtn = document.getElementById('google-signin-btn');
+            if (googleBtn) googleBtn.addEventListener('click', loadDynamicAccounts);
+        </script>
+    </div>
+
+    <!-- PROFILE VIEW -->
+    <div id="view-profile" class="spa-view">
+        <main class="container profile-page" style="min-height: calc(100vh - 80px);">
+            <div class="page-header" style="display: flex; align-items: center; gap: 2rem; margin-bottom: 2rem;">
+                <div id="user-initial-display"
+                    style="width: 100px; height: 100px; border-radius: 50%; background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); color: white; display: flex; justify-content: center; align-items: center; font-size: 2.5rem; font-weight: bold; box-shadow: 0 8px 16px rgba(0,0,0,0.2);">
+                    P
+                </div>
+                <div>
+                    <h1 id="profile-heading" style="margin-bottom: 0.5rem;">Welcome, <span class="text-gradient"
+                            id="user-name-display">Pqr2005</span>!</h1>
+                    <p style="color: var(--text-muted); font-size: 1.1rem;"><span
+                            id="user-email-display">pqr2005@gmail.com</span> &nbsp;&bull;&nbsp; Free Tier</p>
+                    <div style="margin-top: 0.8rem;">
+                        <button class="btn btn-primary" onclick="navigateTo('project')"
+                            style="padding: 6px 12px; font-size: 0.9rem; margin-right: 10px;"><i
+                                class="fa-solid fa-play"></i> Start Translation</button>
+                        <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.9rem;"><i
+                                class="fa-solid fa-gear"></i> Edit Profile</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="cards-grid" aria-labelledby="profile-heading"
+                style="display: flex; justify-content: center; margin-top: 2rem; grid-template-columns: 1fr;">
+                <div class="card"
+                    style="padding: 3rem; text-align: center; width: 100%; max-width: 600px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); margin: 0 auto;">
+                    <div
+                        style="background: #e8f0fe; width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem auto;">
+                        <i class="fa-solid fa-download" style="font-size: 2.5rem; color: #1a73e8;"></i>
+                    </div>
+                    <h2 style="margin-bottom: 1rem; color: #202124;">Get Sign Bridge Desktop</h2>
+                    <p style="color: #5f6368; margin-bottom: 2rem; font-size: 1.1rem;">Download the full desktop
+                        application to unlock real-time camera translation and deep AI integration.</p>
+                    <button class="btn btn-primary"
+                        style="padding: 14px 32px; font-size: 1.1rem; width: 100%; max-width: 300px; display: inline-flex; align-items: center; justify-content: center; gap: 10px; border-radius: 30px; box-shadow: 0 4px 6px rgba(26,115,232,0.2); transition: 0.3s;"
+                        onclick="window.open('https://drive.google.com/drive/folders/1IiDmNDtUT8_LTW3pW8_My60BUS5cRARl?usp=drive_link', '_blank');">
+                        <i class="fa-brands fa-windows"></i> Download .exe
+                    </button>
+                </div>
+            </div>
+
+            <!-- Translation History Section -->
+            <div
+                style="margin-top: 4rem; max-width: 800px; margin-left: auto; margin-right: auto; margin-bottom: 2rem;">
+                <h2 style="color: #202124; margin-bottom: 1.5rem; font-size: 1.5rem;"><i
+                        class="fa-solid fa-clock-rotate-left" style="color: #1A73E8; margin-right: 10px;"></i>Recent
+                    Translations</h2>
+                <div id="translation-history-container"
+                    style="background: white; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); padding: 1.5rem; border: 1px solid #eaeaea;">
+                    <p style="color: #5f6368; text-align: center; margin: 0;">No translations yet. Start translating to
+                        see your history!</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- PROJECT VIEW -->
+    <div id="view-project" class="spa-view">
+        <main role="main" class="container" style="min-height: calc(100vh - 80px); padding-top: 2rem; padding-bottom: 3rem;">
+            
+            <!-- Sleek Header -->
+            <div style="text-align: center; margin-bottom: 2rem;">
+                <h2 style="font-size: 2.5rem; color: var(--secondary-color); margin-bottom: 0.5rem;"><i class="fa-solid fa-camera-retro" style="color: var(--primary-color);"></i> Live AI Translator</h2>
+                <p style="color: var(--text-muted); font-size: 1.1rem;">Perform sign language gestures in front of your camera. The AI will translate them into text and speech automatically.</p>
+            </div>
+
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 2rem;">
+                
+                <!-- Main Camera Container with Glass/Shadow Effect -->
+                <div style="background: white; border-radius: 20px; padding: 1.5rem; box-shadow: 0 15px 35px rgba(0,0,0,0.1); width: 100%; max-width: 800px; border: 1px solid rgba(0,0,0,0.05);">
+                    
+                    <!-- Top Status Bar -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid #eaeaea; padding-bottom: 0.8rem;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div id="cam-active-indicator" style="width: 12px; height: 12px; background: #ea4335; border-radius: 50%; box-shadow: 0 0 8px #ea4335;"></div>
+                            <span id="cam-status-text" style="font-weight: 600; color: #444; font-size: 0.95rem;">Camera Offline</span>
+                        </div>
+                        <div style="background: #e8f0fe; color: #1A73E8; padding: 4px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 700;">
+                            Model v1.3.2 Ready
+                        </div>
+                    </div>
+
+                    <!-- Video Feed -->
+                    <div style="background: #111; border-radius: 12px; display: flex; justify-content: center; align-items: center; overflow: hidden; position: relative; min-height: 400px; box-shadow: inset 0 0 20px rgba(0,0,0,0.5);">
+                        <img id="main-video-feed" src="" style="width: 100%; max-height: 550px; display: none; object-fit: contain;" alt="Live Camera feed..." />
+                        <div id="video-placeholder" style="color: #666; font-size: 1.2rem; text-align: center;">
+                            <i class="fa-solid fa-video-slash" style="font-size: 3rem; margin-bottom: 15px; display: block;"></i>
+                            Camera is offline.<br>Click "Start Translation" to begin.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Control Panel Below -->
+                <div style="display: flex; gap: 1rem; width: 100%; max-width: 800px; justify-content: center;">
+                    <button id="start-cam-btn" class="btn btn-primary" onclick="startCamera();" style="display: flex; align-items: center; gap: 8px; padding: 12px 24px;">
+                        <i class="fa-solid fa-play"></i> Start Translation
+                    </button>
+                    <button id="stop-cam-btn" class="btn" onclick="stopCamera();" style="display: none; align-items: center; gap: 8px; padding: 12px 24px; background-color: #ea4335; color: white;">
+                        <i class="fa-solid fa-stop"></i> End Translation
+                    </button>
+                    <button class="btn btn-secondary" onclick="navigateTo('profile')" style="display: flex; align-items: center; gap: 8px; padding: 12px 24px;">
+                        <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
+                    </button>
+                </div>
+                
+            </div>
+            
+            <style>
+                @keyframes pulse {
+                    0% { box-shadow: 0 0 0 0 rgba(52, 168, 83, 0.4); }
+                    70% { box-shadow: 0 0 0 10px rgba(52, 168, 83, 0); }
+                    100% { box-shadow: 0 0 0 0 rgba(52, 168, 83, 0); }
+                }
+            </style>
+        </main>
+    </div>
+
+    <!-- Custom JS -->
+    <script src="/static/script.js"></script>
+</body>
+
+</html>
