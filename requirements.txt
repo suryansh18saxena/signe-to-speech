@@ -1,0 +1,10 @@
+Django>=4.2
+opencv-python-headless
+mediapipe
+scikit-learn
+joblib
+pyttsx3
+gunicorn
+whitenoise
+google-auth
+requests
