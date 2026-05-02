@@ -22,9 +22,12 @@ except Exception as e:
     AI_MODEL = None
     LABEL_ENCODER = None
 
-MP_HANDS = mp.solutions.hands
-HANDS = MP_HANDS.Hands(static_image_mode=False, max_num_hands=1, min_detection_confidence=0.7, min_tracking_confidence=0.5)
-MP_DRAW = mp.solutions.drawing_utils
+from mediapipe.python.solutions import hands as mp_hands
+from mediapipe.python.solutions import drawing_utils as mp_draw
+
+MP_HANDS = mp_hands
+HANDS = mp_hands.Hands(static_image_mode=False, max_num_hands=1, min_detection_confidence=0.7, min_tracking_confidence=0.5)
+MP_DRAW = mp_draw
 
 def index(request):
     return render(request, 'index.html')
