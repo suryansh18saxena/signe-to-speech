@@ -150,33 +150,129 @@ function openHistory() {
     }
 }
 
-window.startCamera = function() {
-    const emailDisplay = document.getElementById('user-email-display');
-    const userEmail = emailDisplay ? emailDisplay.textContent : 'guest';
+let streamInterval = null;
+let localStream = null;
+let predictionBuffer = [];
+let currentSentence = "";
+let isProcessingFrame = false;
+
+function processPrediction(prediction) {
+    if (!prediction || prediction === "No Hand Detected") return;
+    
+    predictionBuffer.push(prediction);
+    if (predictionBuffer.length > 20) predictionBuffer.shift();
+    
+    let counts = {};
+    let maxChar = '';
+    let maxCount = 0;
+    for(let char of predictionBuffer) {
+        counts[char] = (counts[char] || 0) + 1;
+        if(counts[char] > maxCount) {
+            maxCount = counts[char];
+            maxChar = char;
+        }
+    }
+    
+    if (maxCount >= 15) {
+        if (maxChar.toLowerCase() === 'space') {
+            if (currentSentence.trim() !== "") {
+                let textToSpeak = currentSentence.trim();
+                let utterance = new SpeechSynthesisUtterance(textToSpeak);
+                window.speechSynthesis.speak(utterance);
+                
+                const emailDisplay = document.getElementById('user-email-display');
+                const userEmail = emailDisplay ? emailDisplay.textContent : 'guest';
+                
+                fetch('/api/save_history', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: userEmail, text: textToSpeak })
+                });
+                
+                currentSentence = "";
+                predictionBuffer = [];
+            }
+        } else if (maxChar.toLowerCase() === 'del' || maxChar.toLowerCase() === 'backspace') {
+            currentSentence = currentSentence.slice(0, -1);
+            predictionBuffer = [];
+        } else if (maxChar.toLowerCase() !== 'nothing' && maxChar.toLowerCase() !== 'none') {
+            if (currentSentence.length === 0 || currentSentence.charAt(currentSentence.length - 1) !== maxChar) {
+                currentSentence += maxChar;
+            }
+        }
+    }
+}
+
+window.startCamera = async function() {
+    const videoElement = document.getElementById('client-webcam');
+    const canvasElement = document.getElementById('client-canvas');
     const videoImg = document.getElementById('main-video-feed');
     const placeholder = document.getElementById('video-placeholder');
     const startBtn = document.getElementById('start-cam-btn');
     const stopBtn = document.getElementById('stop-cam-btn');
     const activeIndicator = document.getElementById('cam-active-indicator');
 
-    if (videoImg) {
-        videoImg.src = "/video_feed?user=" + encodeURIComponent(userEmail);
+    try {
+        localStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        videoElement.srcObject = localStream;
+        
         videoImg.style.display = 'block';
         if (placeholder) placeholder.style.display = 'none';
+        if (startBtn) startBtn.style.display = 'none';
+        if (stopBtn) stopBtn.style.display = 'flex';
+        
+        if (activeIndicator) {
+            activeIndicator.style.background = '#34A853';
+            activeIndicator.style.boxShadow = '0 0 8px #34A853';
+            activeIndicator.style.animation = 'pulse 2s infinite';
+        }
+        document.getElementById('cam-status-text').textContent = 'Camera Active';
+
+        predictionBuffer = [];
+        currentSentence = "";
+
+        streamInterval = setInterval(async () => {
+            if (isProcessingFrame) return;
+            isProcessingFrame = true;
+            
+            canvasElement.width = videoElement.videoWidth || 640;
+            canvasElement.height = videoElement.videoHeight || 480;
+            const ctx = canvasElement.getContext('2d');
+            ctx.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
+            const base64Image = canvasElement.toDataURL('image/jpeg', 0.5);
+            
+            try {
+                const res = await fetch('/api/predict_frame', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: base64Image })
+                });
+                const data = await res.json();
+                if (data.image) {
+                    videoImg.src = data.image;
+                }
+                if (data.prediction) {
+                    processPrediction(data.prediction);
+                }
+            } catch (err) {
+                console.error("Frame processing error", err);
+            } finally {
+                isProcessingFrame = false;
+            }
+        }, 200); // 5 FPS
+        
+    } catch (err) {
+        alert("Camera access denied or unavailable.");
+        console.error(err);
     }
-    if (startBtn) startBtn.style.display = 'none';
-    if (stopBtn) stopBtn.style.display = 'flex';
-    
-    if (activeIndicator) {
-        activeIndicator.style.background = '#34A853';
-        activeIndicator.style.boxShadow = '0 0 8px #34A853';
-        activeIndicator.style.animation = 'pulse 2s infinite';
-    }
-    const statusText = document.getElementById('cam-status-text');
-    if (statusText) statusText.textContent = 'Camera Active';
 };
 
 window.stopCamera = function() {
+    if (streamInterval) clearInterval(streamInterval);
+    if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+    }
+    
     const videoImg = document.getElementById('main-video-feed');
     const placeholder = document.getElementById('video-placeholder');
     const startBtn = document.getElementById('start-cam-btn');
@@ -186,8 +282,8 @@ window.stopCamera = function() {
     if (videoImg) {
         videoImg.src = "";
         videoImg.style.display = 'none';
-        if (placeholder) placeholder.style.display = 'block';
     }
+    if (placeholder) placeholder.style.display = 'block';
     if (startBtn) startBtn.style.display = 'flex';
     if (stopBtn) stopBtn.style.display = 'none';
     

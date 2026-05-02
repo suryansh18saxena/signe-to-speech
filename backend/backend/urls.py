@@ -41,7 +41,8 @@ from . import views
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', views.index, name='index'),
-    path('video_feed', views.video_feed, name='video_feed'),
+    path('api/predict_frame', views.predict_frame, name='predict_frame'),
+    path('api/save_history', views.save_history, name='save_history'),
     path('api/history', views.get_history, name='get_history'),
     path('api/register', views.register_user, name='register'),
     path('api/login', views.login_user, name='login'),
